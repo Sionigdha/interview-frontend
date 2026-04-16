@@ -390,13 +390,22 @@ export default function PracticePage() {
                   </p>
 
                   {isCoding ? (
-                    <div style={{ marginBottom: "12px" }}>
-                      <CodeEditor value={answers[index] || ""} onChange={(val) => setAnswers(prev => ({ ...prev, [index]: val }))} />
-                    </div>
-                  ) : (
-                    <textarea value={answers[index] || ""} onChange={(e) => setAnswers(prev => ({ ...prev, [index]: e.target.value }))} placeholder="Type your answer here..."
-                      style={{ width: "100%", height: "100px", padding: "12px", background: "#0d1117", border: "1px solid #30363d", borderRadius: "8px", color: "#d1d5db", fontSize: "14px", resize: "vertical", boxSizing: "border-box", marginBottom: "12px" }} />
-                  )}
+  <div style={{ marginBottom: "12px" }}>
+    <CodeEditor value={answers[index] || ""} onChange={(val) => setAnswers(prev => ({ ...prev, [index]: val }))} />
+  </div>
+) : (
+  <textarea 
+    value={answers[index] || ""}
+    onChange={useCallback((e) => {
+      const val = e.target.value
+      setTimeout(() => {
+        setAnswers(prev => ({ ...prev, [index]: val }))
+      }, 300)
+    }, [])}
+    placeholder="Type your answer here..."
+    style={{ width: "100%", height: "100px", padding: "12px", background: "#0d1117", border: "1px solid #30363d", borderRadius: "8px", color: "#d1d5db", fontSize: "14px", resize: "vertical", boxSizing: "border-box", marginBottom: "12px" }}
+  />
+)}
 
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     <button onClick={() => evaluateAnswer(q.question, index, cat)} disabled={evaluatingIndex === index || !answers[index]}
