@@ -168,23 +168,28 @@ export default function PracticePage() {
     window.dispatchEvent(new CustomEvent("camera-violation", { detail: { type } }))
   }
 
-  function buildScoresArray() {
-    return questions.map((q, i) => {
-      const ev = evaluations[i]
-      if (!ev) return null
-      const isCoding = q.category?.toLowerCase() === "coding"
-      return {
-        category: q.category,
-        question: q.question,
-        ...(isCoding
-          ? { correctness: ev.correctness, codeQuality: ev.codeQuality, efficiency: ev.efficiency }
-          : { technicalDepth: ev.technicalDepth, clarity: ev.clarity, confidenceTone: ev.confidenceTone }
-        ),
-        feedback: ev.feedback,
-        improvement: ev.improvement
-      }
-    }).filter(Boolean)
-  }
+// useMemo at top of component with other hooks:
+// import { useState, useEffect, useRef, useMemo } from "react"
+
+const builtScores = useMemo(() => {
+  return questions.reduce((acc, q, i) => {
+    const ev = evaluations[i]
+    if (!ev) return acc  // skip unevaluated — single pass, no filter needed
+
+    const isCoding = q.category?.toLowerCase() === "coding"
+    acc.push({
+      category: q.category,
+      question: q.question,
+      ...(isCoding
+        ? { correctness: ev.correctness, codeQuality: ev.codeQuality, efficiency: ev.efficiency }
+        : { technicalDepth: ev.technicalDepth, clarity: ev.clarity, confidenceTone: ev.confidenceTone }
+      ),
+      feedback: ev.feedback,
+      improvement: ev.improvement
+    })
+    return acc
+  }, [])
+}, [questions, evaluations])  // only recomputes when questions or evaluations change
 
   const allEvaluated = questions.length > 0 && questions.every((_, i) => evaluations[i])
 
