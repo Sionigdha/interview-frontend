@@ -110,17 +110,46 @@ export default function PracticePage() {
   function startInterview() { setSetupDone(true); setInterviewActive(false) }
 
   async function generateQuestions() {
-    setLoading(true); setError(""); setQuestions([]); setAnswers({}); setEvaluations({}); setSaved(false)
+  setLoading(true)
+  setError("")
+  setQuestions([])
+  setAnswers({})
+  setEvaluations({})
+  setSaved(false)
+
+  try {
     const response = await fetch("http://localhost:4000/generate-questions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${getToken()}` 
+      },
       body: JSON.stringify({ text })
     })
+
+    if (!response.ok) {
+      const data = await response.json()
+      setError(data.error || `Server error: ${response.status}`)
+      return
+    }
+
     const data = await response.json()
-    setLoading(false)
-    if (data.error) setError(data.error)
-    else { setQuestions(data.questions); setInterviewActive(true) }
+
+    if (!data.questions || data.questions.length === 0) {
+      setError("No questions were generated. Please try again.")
+      return
+    }
+
+    setQuestions(data.questions)
+    setInterviewActive(true)
+
+  } catch (err) {
+    // catches network errors, JSON parse failures, etc.
+    setError("Failed to connect to server. Please check your connection.")
+  } finally {
+    setLoading(false)  // always runs — button never stays stuck
   }
+}
 
   async function evaluateAnswer(question, index, category) {
     setEvaluatingIndex(index)
