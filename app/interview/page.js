@@ -394,11 +394,12 @@ export default function PracticePage() {
                       <CodeEditor value={answers[index] || ""} onChange={(val) => setAnswers(prev => ({ ...prev, [index]: val }))} />
                     </div>
                   ) : (
-                    <textarea value={answers[index] || ""} onChange={(e) => setAnswers(prev => ({ ...prev, [index]: e.target.value }))} placeholder="Type your answer here..."
-                      style={{ width: "100%", height: "100px", padding: "12px", background: "#0d1117", border: "1px solid #30363d", borderRadius: "8px", color: "#d1d5db", fontSize: "14px", resize: "vertical", boxSizing: "border-box", marginBottom: "12px" }} />
-                  )}
-
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    
+              return (
+                <div key={index} style={{ background: "#161b22", border: "1px solid #21262d", borderRadius: "12px", padding: "24px" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "3px 10px", borderRadius: "100px", background: `${catColor}20`, border: `1px solid ${catColor}50`, color: catColor, fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px" }}>
+                    {isCoding && <span>{"</>"} </span>}{q.category}
+                    <textarea value={answex", flexWrap: "wrap" }}>
                     <button onClick={() => evaluateAnswer(q.question, index, cat)} disabled={evaluatingIndex === index || !answers[index]}
                       style={{ padding: "9px 18px", background: evaluatingIndex === index || !answers[index] ? "#1f2937" : "#16a34a", color: evaluatingIndex === index || !answers[index] ? "#6b7280" : "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: evaluatingIndex === index || !answers[index] ? "not-allowed" : "pointer" }}>
                       {evaluatingIndex === index ? "Evaluating..." : isCoding ? "Evaluate Code" : "Evaluate Answer"}
