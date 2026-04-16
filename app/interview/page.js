@@ -122,17 +122,22 @@ export default function PracticePage() {
     else { setQuestions(data.questions); setInterviewActive(true) }
   }
 
-  async function evaluateAnswer(question, index, category) {
-    setEvaluatingIndex(index)
-    const response = await fetch("http://localhost:4000/evaluate-answer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
-      body: JSON.stringify({ question, answer: answers[index] || "", category, background })
-    })
-    const data = await response.json()
+ const evaluateAnswer = (question, index, category) => {
+  setEvaluatingIndex(index)
+  fetch("http://localhost:4000/evaluate-answer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
+    body: JSON.stringify({ question, answer: answers[index] || "", category, background })
+  })
+  .then(response => response.json())
+  .then(data => {
     setEvaluations(prev => ({ ...prev, [index]: data }))
     setEvaluatingIndex(null)
-  }
+  })
+  // no .catch() — errors silently swallowed
+  // no error state update
+  // no setEvaluatingIndex(null) on failure
+}
 
   function startListening(index) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
