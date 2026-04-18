@@ -1,11 +1,10 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
 
-const MAX_WARNINGS = 3
-
-// Grace period in ms after certain events where blur should be ignored
-// This covers: mic permission popup, camera popup, browser dialogs
+const MAX_WARNINGS = 5
 const BLUR_GRACE_MS = 3000
+// fix 1: sustained window blur threshold — 3 seconds of blur = new app opened
+const SUSTAINED_BLUR_MS = 3000
 
 export default function CheatDetector({ onTerminate, onViolationCount, active }) {
   const [warnings, setWarnings] = useState([])
@@ -14,76 +13,111 @@ export default function CheatDetector({ onTerminate, onViolationCount, active })
   const [lastWarning, setLastWarning] = useState("")
   const violationCountRef = useRef(0)
   const terminatedRef = useRef(false)
-  const lastBlurIgnoreRef = useRef(0)   // timestamp of last event that should suppress blur
+  const lastBlurIgnoreRef = useRef(0)
   const bannerTimerRef = useRef(null)
-
-  // call this before any action that will trigger a browser dialog
-  // (mic, camera, screen share permission popups)
-  // exposed via custom event so other components can call it
-  function suppressNextBlur() {
-    lastBlurIgnoreRef.current = Date.now()
-  }
+  const pollIntervalRef = useRef(null)
+  const wasHiddenRef = useRef(false)
+  // fix 1: track blur start time
+  const blurStartRef = useRef(null)
+  const blurTimerRef = useRef(null)
 
   useEffect(() => {
     if (!active) return
 
-    // listen for suppress-blur events from other components
-    function handleSuppressBlur() { suppressNextBlur() }
-    window.addEventListener("suppress-blur", handleSuppressBlur)
-
-    // ── TAB SWITCH — most reliable method ──
-    // visibilitychange fires when user switches tabs or minimizes
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        triggerViolation("tabSwitch", "⚠️ Tab switch detected — stay on this page")
+    function handleSuppressBlur() {
+      lastBlurIgnoreRef.current = Date.now()
+      // also cancel any pending blur timer
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current)
+        blurTimerRef.current = null
+        blurStartRef.current = null
       }
     }
+    window.addEventListener("suppress-blur", handleSuppressBlur)
 
-    // ── WINDOW BLUR — catches alt+tab, clicking outside browser ──
-    // BUT we ignore it if:
-    // 1. It happened within BLUR_GRACE_MS of a whitelisted action (mic popup etc)
-    // 2. document is still visible (DevTools opening, browser dialog)
+    // PRIMARY: visibilitychange — tab switch
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        wasHiddenRef.current = true
+        triggerViolation("tabSwitch", "⚠️ Tab switch detected — stay on this page")
+      } else {
+        wasHiddenRef.current = false
+        // cancel blur timer if user comes back
+        if (blurTimerRef.current) {
+          clearTimeout(blurTimerRef.current)
+          blurTimerRef.current = null
+          blurStartRef.current = null
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    // SECONDARY: polling for tab detection backup
+    pollIntervalRef.current = setInterval(() => {
+      if (document.hidden && !wasHiddenRef.current) {
+        wasHiddenRef.current = true
+        triggerViolation("tabSwitch", "⚠️ Tab switch detected — stay on this page")
+      } else if (!document.hidden) {
+        wasHiddenRef.current = false
+      }
+    }, 500)
+
+    // fix 1: window blur — detect new app/window opened
+    // start a timer on blur — if sustained for SUSTAINED_BLUR_MS, fire violation
     function handleBlur() {
       const now = Date.now()
       const timeSinceSuppress = now - lastBlurIgnoreRef.current
-
-      // if within grace period — ignore (mic/camera popup)
       if (timeSinceSuppress < BLUR_GRACE_MS) return
+      if (document.hidden) return // already caught by visibilitychange
 
-      // if document is still visible, it's likely a browser dialog — ignore
-      if (!document.hidden && document.visibilityState === "visible") {
-        // small delay to check if it's a real navigation away
-        setTimeout(() => {
-          // if document is now hidden, it was a real tab switch (already caught by visibilitychange)
-          // if still visible, it was a dialog/DevTools — ignore
-          if (!document.hidden) return
-        }, 300)
-        return
-      }
-
-      triggerViolation("windowBlur", "⚠️ Window focus lost — stay on this page")
+      blurStartRef.current = now
+      blurTimerRef.current = setTimeout(() => {
+        // if still blurred after SUSTAINED_BLUR_MS — user switched to another app
+        if (document.activeElement === document.body || !document.hasFocus()) {
+          triggerViolation("appSwitch", "⚠️ Switched to another app — stay on this page")
+        }
+        blurStartRef.current = null
+        blurTimerRef.current = null
+      }, SUSTAINED_BLUR_MS)
     }
 
-    document.addEventListener("visibilitychange", handleVisibilityChange)
+    function handleFocus() {
+      // user came back — cancel any pending blur violation
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current)
+        blurTimerRef.current = null
+        blurStartRef.current = null
+      }
+    }
+
     window.addEventListener("blur", handleBlur)
+    window.addEventListener("focus", handleFocus)
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("blur", handleBlur)
+      window.removeEventListener("focus", handleFocus)
       window.removeEventListener("suppress-blur", handleSuppressBlur)
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
     }
   }, [active])
 
-  // camera violations from CameraMonitor
+  // camera violations + screen share stop
   useEffect(() => {
     function handleCameraViolation(e) {
       if (terminatedRef.current) return
       const type = e.detail?.type
+      if (type === "screenShareStopped") {
+        terminatedRef.current = true
+        setTerminated(true)
+        setWarnings(prev => [...prev, { type: "screenShareStopped", message: "🖥️ Screen sharing stopped", time: new Date().toLocaleTimeString() }])
+        onTerminate()
+        return
+      }
       if (type === "faceAway") triggerViolation("faceAway", "⚠️ Face not visible — look at the screen")
       if (type === "multipleFaces") triggerViolation("multipleFaces", "⚠️ Multiple faces detected")
-      if (type === "phoneDetected") triggerViolation("phoneDetected", "⚠️ Phone detected in frame")
-      if (type === "excessiveMouth") triggerViolation("excessiveMouth", "⚠️ Suspicious mouth movement detected")
-      if (type === "screenShareStopped") triggerViolation("screenShareStopped", "⚠️ Screen sharing stopped")
+      if (type === "excessiveMouth") triggerViolation("excessiveMouth", "⚠️ Suspicious mouth movement")
     }
     window.addEventListener("camera-violation", handleCameraViolation)
     return () => window.removeEventListener("camera-violation", handleCameraViolation)
@@ -112,6 +146,7 @@ export default function CheatDetector({ onTerminate, onViolationCount, active })
 
   const warningCount = violationCountRef.current
   const remaining = Math.max(0, MAX_WARNINGS - warningCount)
+  const isScreenShareTerminated = warnings.some(w => w.type === "screenShareStopped")
 
   return (
     <>
@@ -122,7 +157,7 @@ export default function CheatDetector({ onTerminate, onViolationCount, active })
           zIndex: 9999, background: "#7c2d12", border: "1px solid #ef4444",
           borderRadius: "12px", padding: "14px 24px", display: "flex",
           alignItems: "center", gap: "12px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-          animation: "slideDown 0.3s ease", minWidth: "320px"
+          animation: "slideDown 0.3s ease", minWidth: "340px"
         }}>
           <span style={{ fontSize: "22px" }}>⚠️</span>
           <div style={{ flex: 1 }}>
@@ -131,24 +166,35 @@ export default function CheatDetector({ onTerminate, onViolationCount, active })
               Warning {warningCount}/{MAX_WARNINGS} — {remaining} more before termination
             </p>
           </div>
-          <button onClick={() => setShowBanner(false)} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", fontSize: "18px", padding: "0 4px" }}>×</button>
+          <button onClick={() => setShowBanner(false)} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", fontSize: "18px" }}>×</button>
         </div>
       )}
 
-      {/* terminated overlay */}
-      {terminated && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(0,0,0,0.97)", display: "flex",
-          flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px"
-        }}>
+      {/* screen share terminated */}
+      {terminated && isScreenShareTerminated && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.97)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ textAlign: "center", maxWidth: "500px" }}>
+            <div style={{ fontSize: "64px", marginBottom: "24px" }}>🖥️</div>
+            <h1 style={{ color: "#ef4444", fontSize: "28px", fontWeight: "800", marginBottom: "12px" }}>Interview Terminated</h1>
+            <p style={{ color: "#9ca3af", fontSize: "16px", marginBottom: "32px", lineHeight: "1.6" }}>
+              You stopped screen sharing. Screen sharing is mandatory for the entire interview. This session has been flagged.
+            </p>
+            <button onClick={() => window.location.href = "/dashboard"}
+              style={{ padding: "12px 32px", background: "#22c55e", color: "#0d1117", border: "none", borderRadius: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer" }}>
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* violations terminated */}
+      {terminated && !isScreenShareTerminated && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.97)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div style={{ textAlign: "center", maxWidth: "500px" }}>
             <div style={{ fontSize: "64px", marginBottom: "24px" }}>🚫</div>
-            <h1 style={{ color: "#ef4444", fontSize: "28px", fontWeight: "800", marginBottom: "12px", letterSpacing: "-0.5px" }}>
-              Interview Terminated
-            </h1>
+            <h1 style={{ color: "#ef4444", fontSize: "28px", fontWeight: "800", marginBottom: "12px" }}>Interview Terminated</h1>
             <p style={{ color: "#9ca3af", fontSize: "16px", marginBottom: "32px", lineHeight: "1.6" }}>
-              You received {MAX_WARNINGS} violations for suspicious activity. This session has been flagged and saved.
+              You received {MAX_WARNINGS} violations. This session has been flagged and saved.
             </p>
             <div style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: "12px", padding: "16px", marginBottom: "28px", textAlign: "left" }}>
               <p style={{ color: "#6b7280", fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "12px" }}>Violation Log</p>
@@ -167,7 +213,7 @@ export default function CheatDetector({ onTerminate, onViolationCount, active })
         </div>
       )}
 
-      {/* live violation badge */}
+      {/* live badge */}
       {active && !terminated && (
         <div style={{
           position: "fixed", bottom: "24px", right: "24px", zIndex: 1000,

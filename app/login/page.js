@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 
@@ -10,11 +10,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  // fix 3: clear any browser auto-filled values on mount
+  useEffect(() => {
+    setEmail("")
+    setPassword("")
+  }, [])
+
   async function handleLogin() {
     setLoading(true)
     setError("")
 
-    const response = await fetch("http://localhost:4000/login", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
@@ -35,7 +41,6 @@ export default function Login() {
   return (
     <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
 
-      {/* logo */}
       <Link href="/" style={{ color: "#22c55e", fontWeight: "700", fontSize: "20px", letterSpacing: "-0.5px", textDecoration: "none", marginBottom: "40px" }}>
         InterviewPrep
       </Link>
@@ -46,18 +51,22 @@ export default function Login() {
         <p style={{ color: "#6b7280", fontSize: "14px", marginBottom: "28px" }}>Sign in to continue practising</p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {/* autoComplete="off" and key trick prevents browser autofill */}
           <input
+            key="email-field"
             type="email"
             placeholder="Email"
             value={email}
+            autoComplete="new-password"
             onChange={(e) => setEmail(e.target.value)}
             style={{ width: "100%", padding: "12px 16px", background: "#0d1117", border: "1px solid #30363d", borderRadius: "10px", color: "#fff", fontSize: "14px", outline: "none", boxSizing: "border-box" }}
           />
-
           <input
+            key="password-field"
             type="password"
             placeholder="Password"
             value={password}
+            autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             style={{ width: "100%", padding: "12px 16px", background: "#0d1117", border: "1px solid #30363d", borderRadius: "10px", color: "#fff", fontSize: "14px", outline: "none", boxSizing: "border-box" }}

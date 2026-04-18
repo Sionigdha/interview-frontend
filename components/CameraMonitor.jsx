@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react"
 
 const FACE_DETECT_INTERVAL_MS = 3000
-const MISS_THRESHOLD = 3
+// fix: 4 consecutive misses = 12 seconds of absence before violation
+const MISS_THRESHOLD = 4
 const MULTI_THRESHOLD = 2
-const MOUTH_THRESHOLD = 3
-const MOUTH_OPEN_DIFF = 10
+const MOUTH_THRESHOLD = 5
+const MOUTH_OPEN_DIFF = 14
 
 export default function CameraMonitor({ onViolation, active }) {
   const videoRef = useRef(null)
@@ -31,7 +32,6 @@ export default function CameraMonitor({ onViolation, active }) {
   async function loadAndStart() {
     try {
       window.dispatchEvent(new CustomEvent("suppress-blur"))
-
       const faceapi = await import("face-api.js")
 
       await Promise.all([
@@ -54,10 +54,15 @@ export default function CameraMonitor({ onViolation, active }) {
       intervalRef.current = setInterval(async () => {
         if (!videoRef.current || videoRef.current.readyState < 2) return
         try {
+          // fix: inputSize 512 = better downward angle detection (keyboard glance)
+          // fix: scoreThreshold 0.4 = more tolerant, catches partially visible faces
           const detections = await faceapi
             .detectAllFaces(
               videoRef.current,
-              new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.6 })
+              new faceapi.TinyFaceDetectorOptions({
+                inputSize: 512,
+                scoreThreshold: 0.4
+              })
             )
             .withFaceLandmarks(true)
 
@@ -66,9 +71,9 @@ export default function CameraMonitor({ onViolation, active }) {
           if (count === 0) {
             missCountRef.current += 1
             multiCountRef.current = 0
-            mouthCountRef.current = 0
-            prevMouthRef.current = null
             setFaceStatus("away")
+            // fix: only after 4 consecutive misses (12 seconds) fire violation
+            // a keyboard glance is 1-2 seconds — won't trigger
             if (missCountRef.current >= MISS_THRESHOLD) {
               onViolation("faceAway")
               missCountRef.current = 0
@@ -82,10 +87,12 @@ export default function CameraMonitor({ onViolation, active }) {
               multiCountRef.current = 0
             }
           } else {
+            // face found — reset all counters immediately
             missCountRef.current = 0
             multiCountRef.current = 0
             setFaceStatus("ok")
 
+            // mouth movement
             try {
               const mouth = detections[0].landmarks.getMouth()
               if (mouth && mouth.length >= 10) {
@@ -106,7 +113,9 @@ export default function CameraMonitor({ onViolation, active }) {
               }
             } catch { }
           }
-        } catch { }
+        } catch (err) {
+          console.warn("Face detection error:", err)
+        }
       }, FACE_DETECT_INTERVAL_MS)
 
     } catch (err) {
@@ -115,13 +124,27 @@ export default function CameraMonitor({ onViolation, active }) {
     }
   }
 
-  const color = faceStatus === "ok" ? "#22c55e" : faceStatus === "error" ? "#ef4444" : "#f59e0b"
-  const text = faceStatus === "ok" ? "✓ Face detected" : faceStatus === "away" ? "Look at screen" : faceStatus === "multiple" ? "⚠ Multiple faces" : faceStatus === "error" ? "Camera error" : "Loading..."
+  const color = faceStatus === "ok" ? "#22c55e"
+    : faceStatus === "error" ? "#ef4444"
+    : faceStatus === "away" && missCountRef.current >= MISS_THRESHOLD - 1 ? "#ef4444"
+    : "#f59e0b"
+
+  const missesLeft = MISS_THRESHOLD - missCountRef.current
+  const text = faceStatus === "ok" ? "✓ Face detected"
+    : faceStatus === "away" ? `Look at screen (${missesLeft * 3}s left)`
+    : faceStatus === "multiple" ? "⚠ Multiple faces"
+    : faceStatus === "error" ? "Camera error"
+    : "Loading models..."
 
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: `2px solid ${color}`, background: "#0d1117", transition: "border-color 0.4s ease" }}>
-        <video ref={videoRef} autoPlay muted playsInline style={{ width: "140px", height: "105px", objectFit: "cover", display: "block", transform: "scaleX(-1)" }} />
+      <div style={{
+        position: "relative", borderRadius: "8px", overflow: "hidden",
+        border: `2px solid ${color}`, background: "#0d1117",
+        transition: "border-color 0.4s ease"
+      }}>
+        <video ref={videoRef} autoPlay muted playsInline
+          style={{ width: "140px", height: "105px", objectFit: "cover", display: "block", transform: "scaleX(-1)" }} />
 
         <div style={{ position: "absolute", top: "6px", left: "6px", display: "flex", alignItems: "center", gap: "4px", background: "rgba(0,0,0,0.7)", borderRadius: "100px", padding: "2px 7px" }}>
           <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: faceStatus === "ok" ? "#22c55e" : "#ef4444", animation: "camPulse 1.5s infinite" }} />
