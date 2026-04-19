@@ -2,6 +2,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import API_URL from "../config"
+
 export default function Signup() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")

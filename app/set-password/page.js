@@ -20,7 +20,7 @@ function SetPasswordContent() {
     try {
       setLoading(true)
       setError("")
-      const res = await fetch("http://localhost:4000/complete-signup", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/complete-signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
