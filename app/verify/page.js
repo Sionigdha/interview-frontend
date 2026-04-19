@@ -2,7 +2,7 @@
 import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-
+import API_URL from "../config"
 function VerifyContent() {
   const [code, setCode] = useState("")
   const [error, setError] = useState("")
@@ -16,7 +16,7 @@ function VerifyContent() {
     try {
       setLoading(true)
       setError("")
-      const res = await fetch("http://localhost:4000/verify-otp", {
+      const res = await fetch(`${API_URL}/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code })

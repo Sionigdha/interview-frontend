@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation"
 import XPReward from "@/components/XPReward"
 import CheatDetector from "@/components/CheatDetector"
 import CameraMonitor from "@/components/CameraMonitor"
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
+import API_URL from "../config"
+const API = API_URL
 
 // voice states
 const STATE = {

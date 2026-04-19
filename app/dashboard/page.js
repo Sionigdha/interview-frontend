@@ -5,7 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
 } from "recharts"
-
+import API_URL from "../config"
 const LEVELS = [
   { level: 1, label: "Beginner",      minXP: 0 },
   { level: 2, label: "Apprentice",    minXP: 200 },

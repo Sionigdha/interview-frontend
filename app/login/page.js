@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-
+import API_URL from "../config"
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

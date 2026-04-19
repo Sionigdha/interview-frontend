@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-
+import API_URL from "../config"
 export default function Signup() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
@@ -12,7 +12,7 @@ export default function Signup() {
       setLoading(true)
       setError("")
 
-      const response = await fetch("http://localhost:4000/send-otp", {
+      const response = await fetch(`${API_URL}/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })

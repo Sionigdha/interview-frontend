@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import CameraMonitor from "@/components/CameraMonitor"
 import CheatDetector from "@/components/CheatDetector"
 import XPReward from "@/components/XPReward"
-
+import API_URL from "../config"
 const CodeEditor = dynamic(() => import("@/components/CodeEditor"), { ssr: false })
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
 

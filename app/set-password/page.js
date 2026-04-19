@@ -2,7 +2,7 @@
 import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-
+import API_URL from "../config"
 function SetPasswordContent() {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
