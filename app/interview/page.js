@@ -7,7 +7,6 @@ import CheatDetector from "@/components/CheatDetector"
 import XPReward from "@/components/XPReward"
 import API_URL from "../config"
 const CodeEditor = dynamic(() => import("@/components/CodeEditor"), { ssr: false })
-const API = API_URL
 
 // fix 2: quota retry wrapper for frontend
 async function fetchWithQuotaRetry(url, options, maxRetries = 2) {
@@ -71,7 +70,7 @@ export default function PracticePage() {
     try {
       const formData = new FormData()
       formData.append("resume", file)
-      const res = await fetch(`${API}/extract-resume`, {
+      const res = await fetch(`${API_URL}/extract-resume`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${getToken()}` },
         body: formData
@@ -141,7 +140,7 @@ export default function PracticePage() {
     setQuestions([]); setAnswers({}); setEvaluations({}); setSaved(false)
     try {
       const response = await fetchWithQuotaRetry(
-        `${API}/generate-questions`,
+        `${API_URL}/generate-questions`,
         { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ text }) }
       )
       const data = await response.json()
@@ -163,7 +162,7 @@ export default function PracticePage() {
     setEvaluatingIndex(index)
     try {
       const response = await fetchWithQuotaRetry(
-        `${API}/evaluate-answer`,
+        `${API_URL}/evaluate-answer`,
         { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ question, answer: answers[index] || "", category, background }) }
       )
       if (response.status === 429) {
@@ -230,7 +229,7 @@ export default function PracticePage() {
     if (!role.trim()) return
     setSaving(true)
     try {
-      const res = await fetch(`${API}/save-session`, {
+      const res = await fetch(`${API_URL}/save-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ role, background, scores: buildScoresArray(), violations: { ...violationsRef.current, terminated: isTerminated } })
@@ -238,7 +237,7 @@ export default function PracticePage() {
       const data = await res.json()
       if (!isTerminated && res.ok) {
         setSaved(true)
-        const profileRes = await fetch(`${API}/profile`, { headers: { "Authorization": `Bearer ${getToken()}` } })
+        const profileRes = await fetch(`${API_URL}/profile`, { headers: { "Authorization": `Bearer ${getToken()}` } })
         const profile = await profileRes.json()
         setXpRewardData({ ...data, profile })
       }

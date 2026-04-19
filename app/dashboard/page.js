@@ -109,7 +109,7 @@ export default function Dashboard() {
       setProfile(profData)
     } catch (err) {
       console.error("Fetch error:", err)
-      setFetchError("Cannot connect to backend at localhost:4000. Make sure it is running.")
+      setFetchError(`Cannot connect to backend at ${API_URL}. Make sure it is running.`)
     } finally {
       setLoading(false)
     }
