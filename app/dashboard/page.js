@@ -90,8 +90,8 @@ export default function Dashboard() {
     setFetchError("")
     try {
       const [sessRes, profRes] = await Promise.all([
-        fetch("http://localhost:4000/sessions", { headers: { "Authorization": `Bearer ${token}` } }),
-        fetch("http://localhost:4000/profile",  { headers: { "Authorization": `Bearer ${token}` } }),
+        fetch(`${API_URL}/sessions`, { headers: { "Authorization": `Bearer ${token}` } }),
+        fetch(`${API_URL}/profile`,  { headers: { "Authorization": `Bearer ${token}` } }),
       ])
 
       if (!sessRes.ok || !profRes.ok) {
