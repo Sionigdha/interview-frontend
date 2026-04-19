@@ -94,10 +94,7 @@ export default function Dashboard() {
         fetch(`${API_URL}/profile`,  { headers: { "Authorization": `Bearer ${token}` } }),
       ])
 
-      if (!sessRes.ok || !profRes.ok) {
-        setFetchError("Failed to load data. Is the backend running?")
-        return
-      }
+      
 
       const sessData = await sessRes.json()
       const profData = await profRes.json()
