@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-
+export const dynamic = "force-dynamic";
 export default function SetPassword() {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
